@@ -1,14 +1,18 @@
+#![feature(plugin)]
+#![plugin(docopt_macros)]
+
 use std::collections::HashMap;
 use std::thread;
 use std::sync::{Arc, Mutex};
 
 extern crate hyper;
 extern crate uuid;
+extern crate rustc_serialize;
+extern crate docopt;
 
 use hyper::{Control, Next};
 use hyper::net::{HttpListener};
 use hyper::server::{Server};
-
 use uuid::Uuid;
 
 mod handler;
@@ -146,14 +150,36 @@ impl Manager {
     //}
 }
 
+docopt!(Args derive Debug, "
+esper - Event Source HTTP server, powered by hyper.
+
+Usage:
+  esper [--threads=<st>]
+  esper (-h | --help)
+  esper --version
+
+Options:
+  -h --help       Show this screen.
+  --version       Show version.
+  --threads=<st>  Speed in knots [default: 2].
+", flag_threads: u8);
+
 fn main() {
+    let args: Args = Args::docopt().decode().unwrap_or_else(|e| e.exit());
+    //println!("{:?}", args);
+
+    if args.flag_version {
+        println!("esper v0.1.0");
+        std::process::exit(1);
+    }
+
     let listener = HttpListener::bind(&"127.0.0.1:3002".parse().unwrap()).unwrap();
     let mut handles = Vec::new();
 
     let mgr: Manager = Manager::new();
     let mgr_ref = Arc::new(Mutex::new(mgr));
 
-    for _ in 0..1 { // TODO CLI argument for number of server threads
+    for _ in 0..args.flag_threads {
         let listener = listener.try_clone().unwrap();
         let mgr_inner = mgr_ref.clone();
 

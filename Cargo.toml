@@ -9,3 +9,5 @@ uuid = { version = "0.2", features = ["v4"] }
 docopt = { version = "0.6" }
 docopt_macros = { version = "0.6" }
 rustc-serialize = { version = "0.3" }
+log = { version = "0.3" }
+env_logger = { version = "0.3" }

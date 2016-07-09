@@ -10,6 +10,10 @@ extern crate uuid;
 extern crate rustc_serialize;
 extern crate docopt;
 
+#[macro_use]
+extern crate log;
+extern crate env_logger;
+
 use hyper::{Control, Next};
 use hyper::net::{HttpListener};
 use hyper::server::{Server};
@@ -19,7 +23,7 @@ mod handler;
 
 use handler::EventStream;
 
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Client {
     id: Uuid
 }
@@ -32,7 +36,7 @@ impl Client {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Topic {
     id: Option<Box<str>>
 }
@@ -93,6 +97,8 @@ impl Manager {
     }
 
     pub fn subscribe(&mut self, client: Client, topic: Topic, ctrl: Control) -> () {
+        info!("[Manager] Subscribe client {:?} to topic {:?}", client, topic);
+
         // Create client's message queue
         self.messages.insert(client.clone(), Vec::new());
 
@@ -101,6 +107,8 @@ impl Manager {
     }
 
     pub fn unsubscribe(&mut self, client: Client, topic: Topic) -> () {
+        info!("[Manager] Unsubscribe client {:?} to topic {:?}", client, topic);
+
         // Remove the message queue
         self.messages.remove(&client.clone());
 
@@ -121,6 +129,8 @@ impl Manager {
     }
 
     pub fn publish(&mut self, topic: Topic, msg: &Vec<u8>){
+        info!("[Manager] Publish to topic {:?}", topic);
+
         // Enumerate each client control tuple
         match self.streams.get(&topic) {
             Some(list) => {
@@ -138,6 +148,8 @@ impl Manager {
     }
 
     pub fn messages_for(&mut self, client: Client) -> Option<&mut Vec<Message>> {
+        info!("[Manager] Retrieving messages for {:?}", client);
+
         self.messages.get_mut(&client)
     }
 
@@ -165,12 +177,14 @@ Options:
 ", flag_threads: u8);
 
 fn main() {
+    env_logger::init().unwrap();
+
     let args: Args = Args::docopt().decode().unwrap_or_else(|e| e.exit());
-    //println!("{:?}", args);
+    debug!("Executing with args: {:?}", args);
 
     if args.flag_version {
         println!("esper v0.1.0");
-        std::process::exit(1);
+        std::process::exit(0);
     }
 
     let listener = HttpListener::bind(&"127.0.0.1:3002".parse().unwrap()).unwrap();

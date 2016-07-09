@@ -50,6 +50,8 @@ impl EventStream {
 
 impl Handler<HttpStream> for EventStream {
     fn on_request(&mut self, request: Request<HttpStream>) -> Next {
+        info!("{} {}", request.method(), request.uri());
+
         match *request.uri() {
             RequestUri::AbsolutePath(ref path) => match request.method() {
                 &Get => {
@@ -105,6 +107,8 @@ impl Handler<HttpStream> for EventStream {
     fn on_request_readable(&mut self, transport: &mut Decoder<HttpStream>) -> Next {
         match self.route {
             Route::Publish(ref body) => {
+                debug!("POST /publish req_readable");
+
                 if self.msg_pos < self.msg_buf.len() {
                     match transport.read(&mut self.msg_buf[self.msg_pos..]) {
                         Ok(n) => {
@@ -137,18 +141,22 @@ impl Handler<HttpStream> for EventStream {
     fn on_response(&mut self, response: &mut Response) -> Next {
         match self.route {
             Route::Publish(_) => {
+                debug!("POST /publish on_response");
+
                 match self.manager.lock() {
                     Ok(mut mgr) => {
                         mgr.publish(self.topic.clone(), &self.msg_buf);
                     }
 
-                    Err(_) => ()
+                    Err(_) => warn!("Failed to lock manager")
                 }
 
                 Next::end()
             }
 
             Route::Subscribe => {
+                debug!("GET /subscribe on_response");
+
                 response.headers_mut().set(ContentType(Mime(TopLevel::Text, SubLevel::EventStream, vec![])));
 
                 match self.manager.lock() {
@@ -158,11 +166,17 @@ impl Handler<HttpStream> for EventStream {
                         Next::wait()
                     }
 
-                    Err(_) => Next::end()
+                    Err(_) => {
+                        warn!("Failed to lock manager!");
+
+                        Next::end()
+                    }
                 }
             }
 
             Route::NotFound => {
+                debug!("Route Not Found on_response");
+
                 response.set_status(StatusCode::NotFound);
                 response.headers_mut().set(ContentLength(NOT_FOUND.len() as u64));
 
@@ -180,9 +194,9 @@ impl Handler<HttpStream> for EventStream {
                             Some(mut msgs) => {
                                 for msg in msgs.iter() {
                                     match transport.write(msg.as_slice()) {
-                                        Ok(_) => (),
-                                        Err(_) => {
-                                            //mgr.unsubscribe(self.id.clone(), self.topic.clone());
+                                        Ok(_) => debug!("Transport wrote message"),
+                                        Err(e) => {
+                                            warn!("Transport IO Error; err={:?}", e);
 
                                             return Next::end()
                                         }
@@ -190,9 +204,11 @@ impl Handler<HttpStream> for EventStream {
                                 }
 
                                 msgs.clear();
+
+                                debug!("Messages queue cleared");
                             }
 
-                            None => ()
+                            None => warn!("No messages found for awoken handler")
                         }
 
                         Next::wait()
@@ -218,7 +234,7 @@ impl Handler<HttpStream> for EventStream {
                 mgr.unsubscribe(self.id.clone(), self.topic.clone());
             }
 
-            Err(_) => println!("Failed to lock manager")
+            Err(_) => warn!("Failed to lock manager")
         }
 
         Next::end()
@@ -230,7 +246,7 @@ impl Handler<HttpStream> for EventStream {
                 mgr.unsubscribe(self.id.clone(), self.topic.clone());
             }
 
-            Err(_) => println!("Failed to lock manager")
+            Err(_) => warn!("Failed to lock manager")
         }
     }
 }

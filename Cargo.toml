@@ -1,0 +1,8 @@
+[package]
+name = "esper"
+version = "0.1.0"
+authors = ["Michael Coyne <mikeycgto@gmail.com>"]
+
+[dependencies]
+hyper = { git = "https://github.com/hyperium/hyper.git" }
+uuid = { version = "0.2", features = ["v4"] }

@@ -1,5 +1,3 @@
-#![feature(box_syntax, box_patterns)]
-
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::io::ErrorKind::{WouldBlock as BlockingErr};
@@ -277,9 +275,7 @@ impl Handler<HttpStream> for EventStream {
             Route::Publish(_) => {
                 match self.manager.lock() {
                     Ok(mut mgr) => {
-                        let tpc = self.topic.clone();
-
-                        mgr.publish(tpc, &self.msg_buf);
+                        mgr.publish(self.topic.clone(), &self.msg_buf);
                     }
 
                     Err(_) => ()
@@ -293,10 +289,7 @@ impl Handler<HttpStream> for EventStream {
 
                 match self.manager.lock() {
                     Ok(mut mgr) => {
-                        let cid = self.id.clone();
-                        let tpc = self.topic.clone();
-
-                        mgr.subscribe(cid, tpc, self.control.clone());
+                        mgr.subscribe(self.id.clone(), self.topic.clone(), self.control.clone());
 
                         Next::wait()
                     }
@@ -356,8 +349,6 @@ impl Handler<HttpStream> for EventStream {
     }
 
     fn on_error(&mut self, _err: Error) -> Next {
-        println!("ON_ERR");
-
         match self.manager.lock() {
             Ok(mut mgr) => {
                 mgr.unsubscribe(self.id.clone(), self.topic.clone());
@@ -370,8 +361,6 @@ impl Handler<HttpStream> for EventStream {
     }
 
     fn on_remove(self, _transport: HttpStream) -> () {
-        println!("ON_REMOVE");
-
         match self.manager.lock() {
             Ok(mut mgr) => {
                 mgr.unsubscribe(self.id.clone(), self.topic.clone());

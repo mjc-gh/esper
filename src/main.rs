@@ -166,14 +166,16 @@ docopt!(Args derive Debug, "
 esper - Event Source HTTP server, powered by hyper.
 
 Usage:
-  esper [--threads=<st>]
+  esper [--bind=<bind>] [--port=<port>] [--threads=<st>]
   esper (-h | --help)
   esper --version
 
 Options:
-  -h --help       Show this screen.
-  --version       Show version.
-  --threads=<st>  Number of server threads [default: 2].
+  -h --help          Show this screen.
+  --version          Show version.
+  -b --bind=<bind>   Bind to specific IP [default: 127.0.0.1]
+  -p --port=<port>   Run on a specific port number [default: 3000]
+  -t --threads=<st>  Number of server threads [default: 2].
 ", flag_threads: u8);
 
 fn main() {
@@ -186,8 +188,9 @@ fn main() {
         println!("esper v0.1.0");
         std::process::exit(0);
     }
+    let addr = format!("{}:{}", args.flag_bind, args.flag_port);
+    let listener = HttpListener::bind(&addr.parse().unwrap()).unwrap();
 
-    let listener = HttpListener::bind(&"127.0.0.1:3002".parse().unwrap()).unwrap();
     let mut handles = Vec::new();
 
     let mgr: Manager = Manager::new();

@@ -173,7 +173,7 @@ Usage:
 Options:
   -h --help       Show this screen.
   --version       Show version.
-  --threads=<st>  Speed in knots [default: 2].
+  --threads=<st>  Number of server threads [default: 2].
 ", flag_threads: u8);
 
 fn main() {

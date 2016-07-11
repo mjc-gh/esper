@@ -1,19 +1,18 @@
 ## esper
 
-Esper is a standalone [Event
-Source](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events)/Server
-Sent Event (SSE) broker. It is powered by the most execellent event
+Esper is a standalone Event Source /
+[Server Sent Events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events) (SSE) broker. It is powered by the most excellent event
 driven [hyper](https://github.com/hyperium/hyper) library.
 
 ### Usage
 
 There are two main routes provided by esper; one for subscribing and one
-for publishing: 
+for publishing:
 
 - `GET /subscribe/:topic_id`
   - When requested with a valid `topic_id`, this route will respond with
     the Event Source content type and will leave the connection open.
-The client is now subscribed for the given `topic_id` and will recevie
+The client is now subscribed for the given `topic_id` and will receive
 all published messages for this topic.
 
 - `POST /publish/:topic_id`
@@ -26,7 +25,7 @@ optional `event` and `id` field.
 The `:topic_id` is specified as the second part of the request path.
 This ID must be alphanumeric characters only (case insensitive) and must
 be between 8 and 64 characters in length. Further validation may be
-introduced at a later time. 
+introduced at a later time.
 
 ### Examples
 

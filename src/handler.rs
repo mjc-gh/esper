@@ -68,7 +68,7 @@ impl Handler<HttpStream> for EventStream {
                                 self.route = Route::Subscribe;
                             }
 
-                            None => unreachable!()
+                            None => ()
                         }
                     }
 
@@ -96,7 +96,7 @@ impl Handler<HttpStream> for EventStream {
                                 }
                             }
 
-                            None => unreachable!()
+                            None => ()
                         }
                     }
 

@@ -53,8 +53,8 @@ impl Topic {
     fn validate(skip: usize, full_path: &String) -> Option<Topic> {
         let id: String = full_path.chars().skip(skip).collect();
 
-        match id.len() {
-            0...64 => Some(Topic {
+        match (id.chars().all(|c| c.is_alphanumeric()), id.len()) {
+            (true, 8...64) => Some(Topic {
                 id: Some(id.to_lowercase().into_boxed_str())
             }),
 

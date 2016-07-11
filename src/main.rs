@@ -188,6 +188,7 @@ Options:
 ", flag_threads: u8);
 
 fn main() {
+    println!("Welcome to esper -- the Event Source HTTP server, powered by hyper!");
     env_logger::init().unwrap();
 
     let args: Args = Args::docopt().decode().unwrap_or_else(|e| e.exit());

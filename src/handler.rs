@@ -15,7 +15,8 @@ static NOT_FOUND: &'static [u8] = b"404 Not Found";
 enum Route {
     NotFound,
     Subscribe,
-    Publish(Body)
+    Publish(Body),
+    Stats
 }
 
 #[derive(Clone, Copy)]
@@ -31,7 +32,8 @@ pub struct EventStream {
     route: Route,
     topic: Topic,
     control: Control,
-    manager: Arc<Mutex<Manager>>
+    manager: Arc<Mutex<Manager>>,
+    response: Option<String>
 }
 
 impl EventStream {
@@ -43,7 +45,8 @@ impl EventStream {
             topic: Topic::empty(),
             route: Route::NotFound,
             control: ctrl,
-            manager: mgr
+            manager: mgr,
+            response: None
         }
     }
 }
@@ -55,7 +58,10 @@ impl Handler<HttpStream> for EventStream {
         match *request.uri() {
             RequestUri::AbsolutePath(ref path) => match request.method() {
                 &Get => {
-                    if path.starts_with("/subscribe/") {
+                    if path == "/stats" {
+                        self.route = Route::Stats
+
+                    } else if path.starts_with("/subscribe/") {
                         match Topic::validate(11, path) {
                             Some(topic) => {
                                 self.topic = topic;
@@ -174,6 +180,36 @@ impl Handler<HttpStream> for EventStream {
                 }
             }
 
+            Route::Stats => {
+                debug!("GET /stats on_response");
+
+                match self.manager.lock() {
+                    Ok(mgr) => {
+                        match mgr.stats_json() {
+                            Ok(json) => {
+                                response.headers_mut().set(ContentLength(json.len() as u64));
+
+                                self.response = Some(json);
+
+                                Next::write()
+                            }
+
+                            Err(e) => {
+                                warn!("JSON Error; err={:?}", e);
+
+                                Next::end()
+                            }
+                        }
+                    }
+
+                    Err(_) => {
+                        warn!("Failed to lock manager!");
+
+                        Next::end()
+                    }
+                }
+            }
+
             Route::NotFound => {
                 debug!("Route Not Found on_response");
 
@@ -216,6 +252,18 @@ impl Handler<HttpStream> for EventStream {
 
                     Err(_) => Next::end()
                 }
+            }
+
+            Route::Stats => {
+                match self.response {
+                    Some(ref json) => {
+                        transport.write(json.as_bytes()).unwrap();
+                    }
+
+                    None => ()
+                }
+
+                Next::end()
             }
 
             Route::NotFound => {

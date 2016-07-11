@@ -17,6 +17,8 @@ extern crate env_logger;
 use hyper::{Control, Next};
 use hyper::net::{HttpListener};
 use hyper::server::{Server};
+use rustc_serialize::json::{self, EncodeResult};
+
 use uuid::Uuid;
 
 mod handler;
@@ -88,6 +90,12 @@ pub struct Manager {
     streams: HashMap<Topic, Vec<(Client, Control)>>
 }
 
+#[derive(RustcEncodable)]
+struct Stats {
+    clients: usize,
+    topics: usize
+}
+
 impl Manager {
     fn new() -> Manager {
         Manager {
@@ -153,13 +161,14 @@ impl Manager {
         self.messages.get_mut(&client)
     }
 
-    //fn topic_len(&self) -> usize {
-    //self.streams.len()
-    //}
+    pub fn stats_json(&self) -> EncodeResult<String> {
+        let stats = Stats {
+            clients: self.messages.len(),
+            topics: self.streams.len()
+        };
 
-    //fn client_len(&self) -> usize {
-    //self.messages.len()
-    //}
+        json::encode(&stats)
+    }
 }
 
 docopt!(Args derive Debug, "

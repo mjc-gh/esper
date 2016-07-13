@@ -226,25 +226,17 @@ impl Handler<HttpStream> for EventStream {
             Route::Subscribe => {
                 match self.manager.lock() {
                     Ok(mut mgr) => {
-                        match mgr.messages_for(self.id.clone()) {
-                            Some(mut msgs) => {
-                                for msg in msgs.iter() {
-                                    match transport.write(msg.as_slice()) {
-                                        Ok(_) => debug!("Transport wrote message"),
-                                        Err(e) => {
-                                            warn!("Transport IO Error; err={:?}", e);
+                        let msgs = mgr.messages_for(self.id.clone());
 
-                                            return Next::end()
-                                        }
-                                    }
+                        for msg in msgs.iter() {
+                            match transport.write(msg.as_slice()) {
+                                Ok(_) => debug!("Transport wrote message"),
+                                Err(e) => {
+                                    warn!("Transport IO Error; err={:?}", e);
+
+                                    return Next::end()
                                 }
-
-                                msgs.clear();
-
-                                debug!("Messages queue cleared");
                             }
-
-                            None => warn!("No messages found for awoken handler")
                         }
 
                         Next::wait()

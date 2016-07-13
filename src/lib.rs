@@ -52,6 +52,7 @@ impl Topic {
     }
 }
 
+#[derive(Clone)]
 pub struct Message {
     body: Vec<u8>
 }
@@ -144,10 +145,20 @@ impl Manager {
         }
     }
 
-    pub fn messages_for(&mut self, client: Client) -> Option<&mut Vec<Message>> {
+    pub fn messages_for(&mut self, client: Client) -> Vec<Message> {
         info!("[Manager] Retrieving messages for {:?}", client);
 
-        self.messages.get_mut(&client)
+        match self.messages.get_mut(&client) {
+            Some (mut msgs) => {
+                let ret_msgs = msgs.split_off(0);
+
+                msgs.clear();
+
+                ret_msgs
+            }
+
+            None => Vec::new()
+        }
     }
 
     pub fn stats(&self) -> Stats {

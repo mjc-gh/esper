@@ -13,6 +13,7 @@ use rustc_serialize::json::{self, EncodeResult};
 use uuid::Uuid;
 
 pub mod handler;
+pub mod auth;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Client {

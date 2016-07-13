@@ -11,3 +11,5 @@ docopt_macros = { version = "0.6" }
 rustc-serialize = { version = "0.3" }
 log = { version = "0.3" }
 env_logger = { version = "0.3" }
+jsonwebtoken = { version = "1" }
+time = { version = "0.1" }

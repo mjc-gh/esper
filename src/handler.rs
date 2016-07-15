@@ -29,11 +29,11 @@ pub struct EventStream {
     id: Client,
     msg_buf: Vec<u8>,
     msg_pos: usize,
+    out_buf: Vec<u8>,
     route: Route,
     topic: Topic,
     control: Control,
-    manager: Arc<Mutex<Manager>>,
-    response: Option<String>
+    manager: Arc<Mutex<Manager>>
 }
 
 impl EventStream {
@@ -42,11 +42,11 @@ impl EventStream {
             id: Client::new(),
             msg_buf: vec![0; 4096],
             msg_pos: 0,
+            out_buf: vec![0; 0],
             topic: Topic::empty(),
             route: Route::NotFound,
             control: ctrl,
             manager: mgr,
-            response: None
         }
     }
 }
@@ -189,7 +189,7 @@ impl Handler<HttpStream> for EventStream {
                             Ok(json) => {
                                 response.headers_mut().set(ContentLength(json.len() as u64));
 
-                                self.response = Some(json);
+                                self.out_buf = json.into_bytes();
 
                                 Next::write()
                             }
@@ -247,12 +247,8 @@ impl Handler<HttpStream> for EventStream {
             }
 
             Route::Stats => {
-                match self.response {
-                    Some(ref json) => {
-                        transport.write(json.as_bytes()).unwrap();
-                    }
-
-                    None => ()
+                if self.out_buf.len() > 0 {
+                    transport.write(self.out_buf.as_slice()).unwrap();
                 }
 
                 Next::end()

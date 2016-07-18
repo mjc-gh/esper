@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::env;
 
 extern crate rustc_serialize;
 extern crate hyper;
+extern crate url;
 extern crate uuid;
 
 #[macro_use]
@@ -14,6 +16,8 @@ use uuid::Uuid;
 
 pub mod handler;
 pub mod auth;
+
+use auth::authenticate;
 
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct Client {
@@ -40,7 +44,7 @@ impl Topic {
         }
     }
 
-    pub fn validate(skip: usize, full_path: &String) -> Option<Topic> {
+    pub fn validate(skip: usize, full_path: String) -> Option<Topic> {
         let id: String = full_path.chars().skip(skip).collect();
 
         match (id.chars().all(|c| c.is_alphanumeric()), id.len()) {
@@ -171,5 +175,71 @@ impl Manager {
 
     pub fn stats_json(&self) -> EncodeResult<String> {
         json::encode(&self.stats())
+    }
+}
+
+pub struct Config {
+    has_pub_secret: bool,
+    has_sub_secret: bool,
+    pub_secret: Box<str>,
+    sub_secret: Box<str>
+}
+
+impl Config {
+    fn new(pub_secret: String, sub_secret: String) -> Config {
+        Config {
+            has_pub_secret: pub_secret.len() > 0,
+            has_sub_secret: sub_secret.len() > 0,
+            pub_secret: pub_secret.into_boxed_str(),
+            sub_secret: sub_secret.into_boxed_str()
+        }
+    }
+
+    pub fn from_env() -> Config {
+        let pub_secret = match env::var("ESPER_PUBLISHER_SECRET") {
+            Ok(secret) => secret,
+            Err(e) => {
+                debug!("Config ENV Error; err={:?}", e);
+
+                String::new() // empty String
+            }
+        };
+
+        let sub_secret = match env::var("ESPER_SUBSCRIBER_SECRET") {
+            Ok(secret) => secret,
+            Err(e) => {
+                debug!("Config ENV Error; err={:?}", e);
+
+                String::new() // empty String
+            }
+        };
+
+        Config::new(pub_secret, sub_secret)
+    }
+
+    pub fn is_authenticated_for_publish(&self, token: Option<String>) -> bool {
+        match self.has_pub_secret {
+            true => {
+                match token {
+                    Some(t) => authenticate(t.as_str(), &*self.pub_secret),
+                    None => false // No token found but auth required
+                }
+            }
+
+            false => true // No published auth required -- return true
+        }
+    }
+
+    pub fn is_authenticated_for_subscribe(&self, token: Option<String>) -> bool {
+        match self.has_sub_secret {
+            true => {
+                match token {
+                    Some(t) => authenticate(t.as_str(), &*self.sub_secret),
+                    None => false // No token found but auth required
+                }
+            }
+
+            false => true // No subscribe auth required -- return true
+        }
     }
 }

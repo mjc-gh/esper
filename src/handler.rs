@@ -1,4 +1,4 @@
-use {Manager, Client, Topic};
+use {Config, Manager, Client, Topic};
 
 use std::io::{Read, Write};
 use std::io::ErrorKind::{WouldBlock as BlockingErr};
@@ -9,14 +9,15 @@ use hyper::header::{ContentLength, ContentType};
 use hyper::mime::{Mime, TopLevel, SubLevel};
 use hyper::net::HttpStream;
 use hyper::server::{Handler, Request, Response};
+use url::form_urlencoded::{parse as parse_query_string};
 
 static NOT_FOUND: &'static [u8] = b"404 Not Found";
 
 enum Route {
     NotFound,
-    Subscribe,
     Publish(Body),
-    Stats
+    Stats,
+    Subscribe,
 }
 
 #[derive(Clone, Copy)]
@@ -33,11 +34,12 @@ pub struct EventStream {
     route: Route,
     topic: Topic,
     control: Control,
-    manager: Arc<Mutex<Manager>>
+    config: Arc<Config>,
+    manager: Arc<Mutex<Manager>>,
 }
 
 impl EventStream {
-    pub fn new(ctrl: Control, mgr: Arc<Mutex<Manager>>) -> EventStream {
+    pub fn new(cfg: Arc<Config>, ctrl: Control, mgr: Arc<Mutex<Manager>>) -> EventStream {
         EventStream {
             id: Client::new(),
             msg_buf: vec![0; 4096],
@@ -45,9 +47,28 @@ impl EventStream {
             out_buf: vec![0; 0],
             topic: Topic::empty(),
             route: Route::NotFound,
+            config: cfg,
             control: ctrl,
             manager: mgr,
         }
+    }
+}
+
+fn split_absolute_path(abs_path: String) -> (String, Option<String>) {
+    let split:Vec<&str> = abs_path.split("?").collect();
+
+    match split.len() {
+        2 => {
+            match (split.first(), split.last()) {
+                (Some(path), Some(query)) => {
+                    (path.to_string(), Some(query.to_string()))
+                }
+
+                _ => (abs_path.clone(), None)
+            }
+        }
+
+        _ => (abs_path.clone(), None)
     }
 }
 
@@ -56,55 +77,81 @@ impl Handler<HttpStream> for EventStream {
         info!("{} {}", request.method(), request.uri());
 
         match *request.uri() {
-            RequestUri::AbsolutePath(ref path) => match request.method() {
-                &Get => {
-                    if path == "/stats" {
-                        self.route = Route::Stats
+            RequestUri::AbsolutePath(ref abs_path) => {
+                let (path, query_string) = split_absolute_path(abs_path.clone());
 
-                    } else if path.starts_with("/subscribe/") {
-                        match Topic::validate(11, path) {
-                            Some(topic) => {
-                                self.topic = topic;
-                                self.route = Route::Subscribe;
-                            }
+                let token = match query_string {
+                    Some(qstr) => {
+                        let mut parsed = parse_query_string(qstr.as_bytes());
 
-                            None => ()
+                        match parsed.find(|ref tuple| tuple.0 == "token") {
+                            Some(pair) => Some(pair.1.into_owned()),
+                            None => None
                         }
                     }
 
-                    Next::write()
-                }
+                    None => None
+                };
 
-                &Post => {
-                    if path.starts_with("/publish/") {
-                        match Topic::validate(9, path) {
-                            Some(topic) => {
-                                let mut body_left = true;
-                                let body = if let Some(len) = request.headers().get::<ContentLength>() {
-                                    body_left = **len > 0;
+                debug!("Found JWT parameter of {:?}", token);
 
-                                    Body::Len(**len)
-                                } else {
-                                    Body::Chunked
-                                };
+                match request.method() {
+                    &Get if path == "/stats" => {
+                        debug!("Processing /stats requests");
 
-                                self.topic = topic;
-                                self.route = Route::Publish(body);
+                        if self.config.is_authenticated_for_publish(token) {
+                            self.route = Route::Stats;
+                        }
 
-                                if body_left {
-                                    return Next::read_and_write();
+                        Next::write()
+                    }
+
+                    &Get if path.starts_with("/subscribe") => {
+                        if self.config.is_authenticated_for_subscribe(token) {
+                            match Topic::validate(11, path) {
+                                Some(topic) => {
+                                    self.topic = topic;
+                                    self.route = Route::Subscribe;
                                 }
-                            }
 
-                            None => ()
+                                None => ()
+                            }
                         }
+
+                        Next::write()
                     }
 
-                    Next::write()
-                }
+                    &Post if path.starts_with("/publish") => {
+                        if self.config.is_authenticated_for_publish(token) {
+                            match Topic::validate(9, path) {
+                                Some(topic) => {
+                                    let mut body_left = true;
+                                    let body = if let Some(len) = request.headers().get::<ContentLength>() {
+                                        body_left = **len > 0;
 
-                _ => Next::write()
-            },
+                                        Body::Len(**len)
+                                    } else {
+                                        Body::Chunked
+                                    };
+
+                                    self.topic = topic;
+                                    self.route = Route::Publish(body);
+
+                                    if body_left {
+                                        return Next::read_and_write();
+                                    }
+                                }
+
+                                None => ()
+                            }
+                        }
+
+                        Next::write()
+                    }
+
+                    _ => Next::write()
+                }
+            }
 
             _ => Next::write()
         }

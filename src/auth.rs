@@ -21,7 +21,7 @@ pub fn authenticate(token: &str, secret: &str) -> bool {
     match decode::<Claims>(&token, secret.as_ref(), Algorithm::HS256) {
         Ok(res) => {
             if res.claims.is_expired() {
-                debug!("JWT Token Expired; exp={:?}", res.claims);
+                debug!("JWT token expired; exp={:?}", res.claims);
 
                 false
 
@@ -31,7 +31,7 @@ pub fn authenticate(token: &str, secret: &str) -> bool {
         }
 
         Err(e) => {
-            debug!("JWT Auth Failed; err={:?}", e);
+            debug!("JWT auth failed; err={:?}", e);
 
             false
         }

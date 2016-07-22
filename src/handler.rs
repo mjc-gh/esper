@@ -1,4 +1,4 @@
-use {Config, Manager, Client, Topic};
+use {AuthConfig, Manager, Client, Topic};
 
 use std::io::{Read, Write};
 use std::io::ErrorKind::{WouldBlock as BlockingErr};
@@ -34,20 +34,20 @@ pub struct EventStream {
     route: Route,
     topic: Topic,
     control: Control,
-    config: Arc<Config>,
+    auth_cfg: Arc<AuthConfig>,
     manager: Arc<Mutex<Manager>>,
 }
 
 impl EventStream {
-    pub fn new(cfg: Arc<Config>, ctrl: Control, mgr: Arc<Mutex<Manager>>) -> EventStream {
+    pub fn new(acfg: Arc<AuthConfig>, ctrl: Control, mgr: Arc<Mutex<Manager>>) -> EventStream {
         EventStream {
             id: Client::new(),
             msg_buf: vec![0; 4096],
             msg_pos: 0,
             out_buf: vec![0; 0],
-            topic: Topic::empty(),
+            topic: Topic::new(),
             route: Route::NotFound,
-            config: cfg,
+            auth_cfg: acfg,
             control: ctrl,
             manager: mgr,
         }
@@ -72,6 +72,21 @@ fn split_absolute_path(abs_path: String) -> (String, Option<String>) {
     }
 }
 
+fn parse_and_find_token(query_string: Option<String>) -> Option<String> {
+    match query_string {
+        Some(qstr) => {
+            let mut parsed = parse_query_string(qstr.as_bytes());
+
+            match parsed.find(|ref tuple| tuple.0 == "token") {
+                Some(pair) => Some(pair.1.into_owned()),
+                None => None
+            }
+        }
+
+        None => None
+    }
+}
+
 impl Handler<HttpStream> for EventStream {
     fn on_request(&mut self, request: Request<HttpStream>) -> Next {
         info!("{} {}", request.method(), request.uri());
@@ -79,27 +94,15 @@ impl Handler<HttpStream> for EventStream {
         match *request.uri() {
             RequestUri::AbsolutePath(ref abs_path) => {
                 let (path, query_string) = split_absolute_path(abs_path.clone());
+                let token = parse_and_find_token(query_string);
 
-                let token = match query_string {
-                    Some(qstr) => {
-                        let mut parsed = parse_query_string(qstr.as_bytes());
-
-                        match parsed.find(|ref tuple| tuple.0 == "token") {
-                            Some(pair) => Some(pair.1.into_owned()),
-                            None => None
-                        }
-                    }
-
-                    None => None
-                };
-
-                debug!("Found JWT parameter of {:?}", token);
+                    debug!("Found JWT parameter of {:?}", token);
 
                 match request.method() {
                     &Get if path == "/stats" => {
                         debug!("Processing /stats requests");
 
-                        if self.config.is_authenticated_for_publish(token) {
+                        if self.auth_cfg.is_authenticated_for_publish(self.topic.id.clone(), token) {
                             self.route = Route::Stats;
                         }
 
@@ -107,7 +110,7 @@ impl Handler<HttpStream> for EventStream {
                     }
 
                     &Get if path.starts_with("/subscribe") => {
-                        if self.config.is_authenticated_for_subscribe(token) {
+                        if self.auth_cfg.is_authenticated_for_subscribe(self.topic.id.clone(), token) {
                             match Topic::validate(11, path) {
                                 Some(topic) => {
                                     self.topic = topic;
@@ -122,7 +125,7 @@ impl Handler<HttpStream> for EventStream {
                     }
 
                     &Post if path.starts_with("/publish") => {
-                        if self.config.is_authenticated_for_publish(token) {
+                        if self.auth_cfg.is_authenticated_for_publish(self.topic.id.clone(), token) {
                             match Topic::validate(9, path) {
                                 Some(topic) => {
                                     let mut body_left = true;

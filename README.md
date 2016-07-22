@@ -27,6 +27,23 @@ This ID must be alphanumeric characters only (case insensitive) and must
 be between 8 and 64 characters in length. Further validation may be
 introduced at a later time.
 
+### Authentication
+
+Esper uses JSON Web Tokens to ensure requests are legitimate. For tokens
+to be considered valid, they must include an `exp` field set to some
+future timestamp (in seconds as an integer) as well as a `sub` field set
+to the `topic_id`.
+
+Authentication is available for both the subscribe and publish routes
+and is enabled by setting a environmental variable. These variables are
+named `ESPER_SUBSCRIBER_SECRET` and `ESPER_PUBLISHER_SECRET`. It is
+possible to enable just one kind of authentication by leaving the other
+secret undefined.
+
+Also, please note that, the `/stats` route is protected by JWT using the
+publisher secret since this route is for developer use (and not for
+client use).
+
 ### Examples
 
 Here is a quick example of what to expect from esper using `curl`.
@@ -37,12 +54,12 @@ curl -v -X GET http://localhost:3000/subscribe/abcdef123
 > GET /subscribe/abcdef123 HTTP/1.1
 > User-Agent: curl/7.35.0
 > Host: localhost:3001
-> 
+>
 < HTTP/1.1 200 OK
 < Content-Type: text/event-stream
 < Date: Mon, 11 Jul 2016 20:27:53 GMT
 < Transfer-Encoding: chunked
-< 
+<
 ```
 
 Next, using another shell, lets publish a message with `curl` to the
@@ -66,7 +83,7 @@ event: testing
 data: {"some":"data"}
 ```
 
-There you have it, the essence of esper! 
+There you have it, the essence of esper!
 
 ### Deploying
 

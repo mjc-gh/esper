@@ -34,13 +34,14 @@ impl Client {
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Topic {
-    id: Option<Box<str>>
+    id: Box<str>
 }
 
 impl Topic {
-    pub fn empty() -> Topic {
+    pub fn new() -> Topic {
         Topic {
-            id: None
+            // TODO move to Default?
+            id: String::new().into_boxed_str()
         }
     }
 
@@ -49,7 +50,7 @@ impl Topic {
 
         match (id.chars().all(|c| c.is_alphanumeric()), id.len()) {
             (true, 8...64) => Some(Topic {
-                id: Some(id.to_lowercase().into_boxed_str())
+                id: id.to_lowercase().into_boxed_str()
             }),
 
             _ => None
@@ -178,16 +179,16 @@ impl Manager {
     }
 }
 
-pub struct Config {
+pub struct AuthConfig {
     has_pub_secret: bool,
     has_sub_secret: bool,
     pub_secret: Box<str>,
     sub_secret: Box<str>
 }
 
-impl Config {
-    fn new(pub_secret: String, sub_secret: String) -> Config {
-        Config {
+impl AuthConfig {
+    fn new(pub_secret: String, sub_secret: String) -> AuthConfig {
+        AuthConfig {
             has_pub_secret: pub_secret.len() > 0,
             has_sub_secret: sub_secret.len() > 0,
             pub_secret: pub_secret.into_boxed_str(),
@@ -195,11 +196,11 @@ impl Config {
         }
     }
 
-    pub fn from_env() -> Config {
+    pub fn from_env() -> AuthConfig {
         let pub_secret = match env::var("ESPER_PUBLISHER_SECRET") {
             Ok(secret) => secret,
             Err(e) => {
-                debug!("Config ENV Error; err={:?}", e);
+                debug!("No ESPER_PUBLISHER_SECRET env variable found; err={:?}", e);
 
                 String::new() // empty String
             }
@@ -208,20 +209,20 @@ impl Config {
         let sub_secret = match env::var("ESPER_SUBSCRIBER_SECRET") {
             Ok(secret) => secret,
             Err(e) => {
-                debug!("Config ENV Error; err={:?}", e);
+                debug!("No ESPER_SUBSCRIBER_SECRET env variable found; err={:?}", e);
 
                 String::new() // empty String
             }
         };
 
-        Config::new(pub_secret, sub_secret)
+        AuthConfig::new(pub_secret, sub_secret)
     }
 
-    pub fn is_authenticated_for_publish(&self, token: Option<String>) -> bool {
+    pub fn is_authenticated_for_publish(&self, topic_id: Box<str>, token: Option<String>) -> bool {
         match self.has_pub_secret {
             true => {
                 match token {
-                    Some(t) => authenticate(t.as_str(), &*self.pub_secret),
+                    Some(t) => authenticate(&*topic_id, t.as_str(), &*self.pub_secret),
                     None => false // No token found but auth required
                 }
             }
@@ -230,11 +231,11 @@ impl Config {
         }
     }
 
-    pub fn is_authenticated_for_subscribe(&self, token: Option<String>) -> bool {
+    pub fn is_authenticated_for_subscribe(&self, topic_id: Box<str>, token: Option<String>) -> bool {
         match self.has_sub_secret {
             true => {
                 match token {
-                    Some(t) => authenticate(t.as_str(), &*self.sub_secret),
+                    Some(t) => authenticate(&*topic_id, t.as_str(), &*self.sub_secret),
                     None => false // No token found but auth required
                 }
             }

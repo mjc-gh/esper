@@ -17,14 +17,14 @@ use std::sync::{Arc, Mutex};
 use hyper::net::{HttpListener};
 use hyper::server::{Server};
 
-use esper::{Config, Manager};
+use esper::{AuthConfig, Manager};
 use esper::handler::EventStream;
 
 docopt!(Args derive Debug, "
 esper - Event Source HTTP server, powered by hyper.
 
 Usage:
-  esper [-n | --no-auth] [--bind=<bind>] [--port=<port>] [--threads=<st>]
+  esper [--bind=<bind>] [--port=<port>] [--threads=<st>]
   esper (-h | --help)
   esper (-v | --version)
 
@@ -34,7 +34,6 @@ Options:
   -b --bind=<bind>   Bind to specific IP [default: 127.0.0.1]
   -p --port=<port>   Run on a specific port number [default: 3000]
   -t --threads=<st>  Number of server threads [default: 2].
-  --no-auth          Run without JWT authentication.
 ", flag_threads: u8);
 
 fn main() {
@@ -54,10 +53,8 @@ fn main() {
 
     let mut handles = Vec::new();
 
-    let mgr: Manager = Manager::new();
-    let mgr_ref = Arc::new(Mutex::new(mgr));
-
-    let cfg_ref = Arc::new(Config::from_env());
+    let mgr_ref = Arc::new(Mutex::new(Manager::new()));
+    let cfg_ref = Arc::new(AuthConfig::from_env());
 
     for _ in 0..args.flag_threads {
         let listener = listener.try_clone().unwrap();

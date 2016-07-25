@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex};
 use hyper::net::{HttpListener};
 use hyper::server::{Server};
 
-use esper::{AuthConfig, Manager};
+use esper::{Access, Manager};
 use esper::handler::EventStream;
 
 docopt!(Args derive Debug, "
@@ -54,17 +54,17 @@ fn main() {
     let mut handles = Vec::new();
 
     let mgr_ref = Arc::new(Mutex::new(Manager::new()));
-    let cfg_ref = Arc::new(AuthConfig::from_env());
+    let acc_ref = Arc::new(Access::from_env());
 
     for _ in 0..args.flag_threads {
         let listener = listener.try_clone().unwrap();
 
-        let cfg_inner = cfg_ref.clone();
+        let acc_inner = acc_ref.clone();
         let mgr_inner = mgr_ref.clone();
 
         handles.push(thread::spawn(move || {
             Server::new(listener).handle(|ctrl| {
-                EventStream::new(cfg_inner.clone(), ctrl, mgr_inner.clone())
+                EventStream::new(ctrl, acc_inner.clone(), mgr_inner.clone())
             }).unwrap();
         }));
     }

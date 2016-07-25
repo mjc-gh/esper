@@ -179,16 +179,16 @@ impl Manager {
     }
 }
 
-pub struct AuthConfig {
+pub struct Access {
     has_pub_secret: bool,
     has_sub_secret: bool,
     pub_secret: Box<str>,
     sub_secret: Box<str>
 }
 
-impl AuthConfig {
-    fn new(pub_secret: String, sub_secret: String) -> AuthConfig {
-        AuthConfig {
+impl Access {
+    fn new(pub_secret: String, sub_secret: String) -> Access {
+        Access {
             has_pub_secret: pub_secret.len() > 0,
             has_sub_secret: sub_secret.len() > 0,
             pub_secret: pub_secret.into_boxed_str(),
@@ -196,13 +196,13 @@ impl AuthConfig {
         }
     }
 
-    pub fn from_env() -> AuthConfig {
+    pub fn from_env() -> Access {
         let pub_secret = match env::var("ESPER_PUBLISHER_SECRET") {
             Ok(secret) => secret,
             Err(e) => {
                 debug!("No ESPER_PUBLISHER_SECRET env variable found; err={:?}", e);
 
-                String::new() // empty String
+                String::new() // use an empty String
             }
         };
 
@@ -211,11 +211,11 @@ impl AuthConfig {
             Err(e) => {
                 debug!("No ESPER_SUBSCRIBER_SECRET env variable found; err={:?}", e);
 
-                String::new() // empty String
+                String::new() // use an empty String
             }
         };
 
-        AuthConfig::new(pub_secret, sub_secret)
+        Access::new(pub_secret, sub_secret)
     }
 
     pub fn is_authenticated_for_publish(&self, topic_id: Box<str>, token: Option<String>) -> bool {

@@ -1,4 +1,4 @@
-use {AuthConfig, Manager, Client, Topic};
+use {Access, Manager, Client, Topic};
 
 use std::io::{Read, Write};
 use std::io::ErrorKind::{WouldBlock as BlockingErr};
@@ -34,12 +34,12 @@ pub struct EventStream {
     route: Route,
     topic: Topic,
     control: Control,
-    auth_cfg: Arc<AuthConfig>,
-    manager: Arc<Mutex<Manager>>,
+    access: Arc<Access>,
+    manager: Arc<Mutex<Manager>>
 }
 
 impl EventStream {
-    pub fn new(acfg: Arc<AuthConfig>, ctrl: Control, mgr: Arc<Mutex<Manager>>) -> EventStream {
+    pub fn new(ctrl: Control, acc: Arc<Access>, mgr: Arc<Mutex<Manager>>) -> EventStream {
         EventStream {
             id: Client::new(),
             msg_buf: vec![0; 4096],
@@ -47,9 +47,9 @@ impl EventStream {
             out_buf: vec![0; 0],
             topic: Topic::new(),
             route: Route::NotFound,
-            auth_cfg: acfg,
             control: ctrl,
-            manager: mgr,
+            access: acc,
+            manager: mgr
         }
     }
 }
@@ -102,7 +102,7 @@ impl Handler<HttpStream> for EventStream {
                     &Get if path == "/stats" => {
                         debug!("Processing /stats requests");
 
-                        if self.auth_cfg.is_authenticated_for_publish(self.topic.id.clone(), token) {
+                        if self.access.is_authenticated_for_publish(self.topic.id.clone(), token) {
                             self.route = Route::Stats;
                         }
 
@@ -110,7 +110,7 @@ impl Handler<HttpStream> for EventStream {
                     }
 
                     &Get if path.starts_with("/subscribe") => {
-                        if self.auth_cfg.is_authenticated_for_subscribe(self.topic.id.clone(), token) {
+                        if self.access.is_authenticated_for_subscribe(self.topic.id.clone(), token) {
                             match Topic::validate(11, path) {
                                 Some(topic) => {
                                     self.topic = topic;
@@ -125,7 +125,7 @@ impl Handler<HttpStream> for EventStream {
                     }
 
                     &Post if path.starts_with("/publish") => {
-                        if self.auth_cfg.is_authenticated_for_publish(self.topic.id.clone(), token) {
+                        if self.access.is_authenticated_for_publish(self.topic.id.clone(), token) {
                             match Topic::validate(9, path) {
                                 Some(topic) => {
                                     let mut body_left = true;

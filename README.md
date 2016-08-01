@@ -52,7 +52,6 @@ First, we subscribe a client to the topic `abcdef123`:
 ```bash
 curl -v -X GET http://localhost:3000/subscribe/abcdef123
 > GET /subscribe/abcdef123 HTTP/1.1
-> User-Agent: curl/7.35.0
 > Host: localhost:3001
 >
 < HTTP/1.1 200 OK
@@ -69,7 +68,6 @@ same topic:
 curl -v -X POST http://localhost:3000/publish/abcdef123 -d $'event:
 testing\ndata: {some:"data"}'
 > POST /publish/abcdef123 HTTP/1.1
-> User-Agent: curl/7.35.0
 > Host: localhost:3001
 > Content-Length: 36
 > Content-Type: application/x-www-form-urlencoded

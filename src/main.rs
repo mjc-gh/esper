@@ -46,7 +46,7 @@ fn main() {
     println!("Welcome to esper -- the Event Source HTTP server, powered by hyper!\n");
     env_logger::init().unwrap_or_else(|_| abort("Failed to initialize logger!"));
 
-    let args: Args = Args::docopt().decode().unwrap_or_else(|_| abort("Failed to decode arguments!"));
+    let args: Args = Args::docopt().decode().unwrap_or_else(|e| e.exit());
     debug!("Executing with args: {:?}", args);
 
     if args.flag_version {
@@ -56,23 +56,34 @@ fn main() {
     match format!("{}:{}", args.flag_bind, args.flag_port).parse() {
         Ok(addr) => {
             match HttpListener::bind(&addr) {
-                Ok(listener) => {
+                Ok(http_listener) => {
                     let mut handles = Vec::new();
 
                     let mgr_ref = Arc::new(Mutex::new(Manager::new()));
                     let acc_ref = Arc::new(Access::from_env());
 
                     for _ in 0..args.flag_threads {
-                        let listener = listener.try_clone().unwrap();
+                        match http_listener.try_clone() {
+                            Ok(thread_listener) => {
+                                let acc_inner = acc_ref.clone();
+                                let mgr_inner = mgr_ref.clone();
 
-                        let acc_inner = acc_ref.clone();
-                        let mgr_inner = mgr_ref.clone();
+                                handles.push(thread::spawn(move || {
+                                    let server = Server::new(thread_listener).handle(|ctrl| {
+                                        EventStream::new(ctrl, acc_inner.clone(), mgr_inner.clone())
+                                    });
 
-                        handles.push(thread::spawn(move || {
-                            Server::new(listener).handle(|ctrl| {
-                                EventStream::new(ctrl, acc_inner.clone(), mgr_inner.clone())
-                            }).unwrap();
-                        }));
+                                    match server {
+                                        Ok(_) => debug!("Started server thread"),
+                                        Err(err) => warn!("Failed to start server thread; {:?}", err.description())
+                                    }
+                                }));
+                            }
+
+                            Err(err) => {
+                                warn!("Failed to clone listener for thread; {:?}", err.description());
+                            }
+                        }
                     }
 
                     for handle in handles {

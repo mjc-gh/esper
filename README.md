@@ -81,8 +81,10 @@ event: testing
 data: {"some":"data"}
 ```
 
-We can also subscribe using the `EventSource` object in the browser. For
-example:
+We can also subscribe using the `EventSource` object in the browser.
+In fact, esper is mainly designed for this use case!
+
+A quick example use some JavaScript would be as follows:
 
 ```javascript
 var evtSource = new EventSource('localhost:3000/subscribe/abcdef123');

@@ -1,6 +1,5 @@
 use {Access, Manager, Client, Topic};
 
-use std::io::{Read, Write};
 use std::io::ErrorKind::{WouldBlock as BlockingErr};
 use std::sync::{Arc, Mutex};
 
@@ -9,7 +8,7 @@ use hyper::header::{ContentLength, ContentType};
 use hyper::mime::{Mime, TopLevel, SubLevel};
 use hyper::net::HttpStream;
 use hyper::server::{Handler, Request, Response};
-use url::form_urlencoded::{parse as parse_query_string};
+use url::form_urlencoded::{Parse, parse as form_urlencoded_parse};
 
 static NOT_FOUND: &'static [u8] = b"404 Not Found";
 
@@ -54,35 +53,9 @@ impl EventStream {
     }
 }
 
-fn split_absolute_path(abs_path: String) -> (String, Option<String>) {
-    let split:Vec<&str> = abs_path.split("?").collect();
-
-    match split.len() {
-        2 => {
-            match (split.first(), split.last()) {
-                (Some(path), Some(query)) => {
-                    (path.to_string(), Some(query.to_string()))
-                }
-
-                _ => (abs_path.clone(), None)
-            }
-        }
-
-        _ => (abs_path.clone(), None)
-    }
-}
-
-fn parse_and_find_token(query_string: Option<String>) -> Option<String> {
-    match query_string {
-        Some(qstr) => {
-            let mut parsed = parse_query_string(qstr.as_bytes());
-
-            match parsed.find(|ref tuple| tuple.0 == "token") {
-                Some(pair) => Some(pair.1.into_owned()),
-                None => None
-            }
-        }
-
+fn find_token(params: &mut Parse) -> Option<String> {
+    match params.find(|ref tuple| tuple.0 == "token") {
+        Some(pair) => Some(pair.1.into_owned()),
         None => None
     }
 }
@@ -92,11 +65,18 @@ impl Handler<HttpStream> for EventStream {
         info!("{} {}", request.method(), request.uri());
 
         match *request.uri() {
-            RequestUri::AbsolutePath(ref abs_path) => {
-                let (path, query_string) = split_absolute_path(abs_path.clone());
-                let token = parse_and_find_token(query_string);
+            RequestUri::AbsolutePath { ref path, ref query } => {
+                let token = match *query {
+                    Some(ref qs) => {
+                        let mut params = form_urlencoded_parse(qs.as_bytes());
 
-                    debug!("Found JWT parameter of {:?}", token);
+                        find_token(&mut params)
+                    }
+
+                    _ => None
+                };
+
+                debug!("Found JWT parameter of {:?}", token);
 
                 match request.method() {
                     &Get if path == "/stats" => {
@@ -111,7 +91,7 @@ impl Handler<HttpStream> for EventStream {
 
                     &Get if path.starts_with("/subscribe") => {
                         if self.access.is_authenticated_for_subscribe(self.topic.id.clone(), token) {
-                            match Topic::validate(11, path) {
+                            match Topic::validate(11, path.clone()) {
                                 Some(topic) => {
                                     self.topic = topic;
                                     self.route = Route::Subscribe;
@@ -126,7 +106,7 @@ impl Handler<HttpStream> for EventStream {
 
                     &Post if path.starts_with("/publish") => {
                         if self.access.is_authenticated_for_publish(self.topic.id.clone(), token) {
-                            match Topic::validate(9, path) {
+                            match Topic::validate(9, path.clone()) {
                                 Some(topic) => {
                                     let mut body_left = true;
                                     let body = if let Some(len) = request.headers().get::<ContentLength>() {

@@ -13,6 +13,7 @@ extern crate esper;
 
 use std::thread;
 use std::sync::{Arc, Mutex};
+use std::error::Error;
 
 use hyper::net::{HttpListener};
 use hyper::server::{Server};
@@ -36,40 +37,59 @@ Options:
   -t --threads=<st>  Number of server threads [default: 2].
 ", flag_threads: u8);
 
+fn abort(message: &'static str) -> () {
+    println!("{}", message);
+    std::process::exit(0);
+}
+
 fn main() {
     println!("Welcome to esper -- the Event Source HTTP server, powered by hyper!\n");
-    env_logger::init().unwrap();
+    env_logger::init().unwrap_or_else(|_| abort("Failed to initialize logger!"));
 
-    let args: Args = Args::docopt().decode().unwrap_or_else(|e| e.exit());
+    let args: Args = Args::docopt().decode().unwrap_or_else(|_| abort("Failed to decode arguments!"));
     debug!("Executing with args: {:?}", args);
 
     if args.flag_version {
-        println!("esper v0.1.0");
-        std::process::exit(0);
+        abort("esper v0.1.0");
     }
 
-    let addr = format!("{}:{}", args.flag_bind, args.flag_port);
-    let listener = HttpListener::bind(&addr.parse().unwrap()).unwrap();
+    match format!("{}:{}", args.flag_bind, args.flag_port).parse() {
+        Ok(addr) => {
+            match HttpListener::bind(&addr) {
+                Ok(listener) => {
+                    let mut handles = Vec::new();
 
-    let mut handles = Vec::new();
+                    let mgr_ref = Arc::new(Mutex::new(Manager::new()));
+                    let acc_ref = Arc::new(Access::from_env());
 
-    let mgr_ref = Arc::new(Mutex::new(Manager::new()));
-    let acc_ref = Arc::new(Access::from_env());
+                    for _ in 0..args.flag_threads {
+                        let listener = listener.try_clone().unwrap();
 
-    for _ in 0..args.flag_threads {
-        let listener = listener.try_clone().unwrap();
+                        let acc_inner = acc_ref.clone();
+                        let mgr_inner = mgr_ref.clone();
 
-        let acc_inner = acc_ref.clone();
-        let mgr_inner = mgr_ref.clone();
+                        handles.push(thread::spawn(move || {
+                            Server::new(listener).handle(|ctrl| {
+                                EventStream::new(ctrl, acc_inner.clone(), mgr_inner.clone())
+                            }).unwrap();
+                        }));
+                    }
 
-        handles.push(thread::spawn(move || {
-            Server::new(listener).handle(|ctrl| {
-                EventStream::new(ctrl, acc_inner.clone(), mgr_inner.clone())
-            }).unwrap();
-        }));
-    }
+                    for handle in handles {
+                        handle.join().unwrap();
+                    }
+                }
 
-    for handle in handles {
-        handle.join().unwrap();
+                Err(err) => {
+                    println!("Http listener failed; {:?}", err.description());
+                    std::process::exit(0);
+                }
+            }
+        }
+
+        Err(err) => {
+            println!("Address parse error; {:?}", err.description());
+            std::process::exit(0);
+        }
     }
 }

@@ -35,14 +35,13 @@ future timestamp (in seconds as an integer) as well as a `sub` field set
 to the `topic_id`.
 
 Authentication is available for both the subscribe and publish routes
-and is enabled by setting a environmental variable. These variables are
-named `ESPER_SUBSCRIBER_SECRET` and `ESPER_PUBLISHER_SECRET`. It is
-possible to enable just one kind of authentication by leaving the other
-secret undefined.
+and is enabled by setting one or both environmental variables. These
+variables are named `ESPER_SUBSCRIBER_SECRET` and `ESPER_PUBLISHER_SECRET`.
+It is possible to enable just one kind of authentication by leaving the
+other secret undefined.
 
 Also, please note that, the `/stats` route is protected by JWT using the
-publisher secret since this route is for developer use (and not for
-client use).
+publisher secret since this route is intended for developer use.
 
 ### Examples
 
@@ -99,8 +98,8 @@ There you have it, the essence of esper!
 ### Deploying
 
 Esper ships as a standalone executable with a small set of command-line
-options. Here is the espers help screen for more details on the
-supported options:
+options. Here is esper's help screen for more details on the supported
+options:
 
 ```
 $ esper --help

@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Michael Coyne <mikeycgto@gmail.com>"]
 
 [dependencies]
-hyper = { git = "https://github.com/hyperium/hyper.git" }
+hyper = { git = "https://github.com/hyperium/hyper.git", rev = "a6064a639a7a67a672750b10db41195be47fe1da" }
 url = { version = "1.1.1" }
 uuid = { version = "0.2", features = ["v4"] }
 docopt = { version = "0.6" }

@@ -145,7 +145,10 @@ impl Manager {
                             msgs.push(Message::new(msg));
 
                             // Signal Control to wakeup
-                            ctrl.ready(Next::write()).unwrap();
+                            match ctrl.ready(Next::write()) {
+                                Ok(_) => debug!("[Manager] Publish signaled client {:?}", client),
+                                Err(_) => debug!("[Manager] Published failed to signal client {:?}", client)
+                            }
                         }
 
                         None => info!("[Manager] Client {:?} has no messages Vec", client)

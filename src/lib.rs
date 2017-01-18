@@ -139,11 +139,17 @@ impl Manager {
         match self.streams.get(&topic) {
             Some(list) => {
                 for &(ref client, ref ctrl) in list {
-                    // Add message to client's queue
-                    self.messages.get_mut(&client.clone()).unwrap().push(Message::new(msg));
+                    match self.messages.get_mut(&client.clone()) {
+                        Some(msgs) => {
+                            // Add message to client's queue
+                            msgs.push(Message::new(msg));
 
-                    // Signal Control to wakeup
-                    ctrl.ready(Next::write()).unwrap();
+                            // Signal Control to wakeup
+                            ctrl.ready(Next::write()).unwrap();
+                        }
+
+                        None => info!("[Manager] Client {:?} has no messages Vec", client)
+                    }
                 }
             }
 

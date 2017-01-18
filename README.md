@@ -95,6 +95,15 @@ evtSource.onmessage = function(evt) {
 
 There you have it, the essence of esper!
 
+
+### Building
+
+Esper can be build with a rust development environment [(nightly channel)](https://doc.rust-lang.org/book/nightly-rust.html) and `cargo` command-line tool
+```bash
+clone https://github.com/mikeycgto/esper.git && cd esper
+cargo build --release 
+```
+
 ### Deploying
 
 Esper ships as a standalone executable with a small set of command-line
@@ -118,3 +127,32 @@ Options:
   -t --threads=<st>  Number of server threads [default: 2].
   --no-auth          Run without JWT authentication.
 ```
+
+### Docker
+
+Esper can run in docker container
+
+#### Create docker image and build
+```
+git clone https://github.com/mikeycgto/esper.git && cd esper
+docker build -t unique-image-name .
+```
+
+#### Run in interactive mode (twice CTRL+C for exit)
+```
+docker run -it -p 3000:3000 unique-image-name
+```
+
+#### Run in background (Daemon)
+
+```
+# First launch
+docker run -d --name esper_server_name -p 3000:3000
+
+# Stop
+docker stop esper_server_name
+
+# Start
+docker start esper_server_name
+```
+

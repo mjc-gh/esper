@@ -1,6 +1,3 @@
-#![feature(plugin)]
-#![plugin(docopt_macros)]
-
 extern crate rustc_serialize;
 extern crate docopt;
 extern crate hyper;
@@ -8,6 +5,8 @@ extern crate hyper;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
+
+use docopt::Docopt;
 
 extern crate esper;
 
@@ -21,8 +20,7 @@ use hyper::server::{Server};
 use esper::{Access, Manager};
 use esper::handler::EventStream;
 
-docopt!(Args derive Debug, "
-esper - Event Source HTTP server, powered by hyper.
+const USAGE: &'static str = "esper - Event Source HTTP server, powered by hyper.
 
 Usage:
   esper [--bind=<bind>] [--port=<port>] [--threads=<st>]
@@ -35,7 +33,17 @@ Options:
   -b --bind=<bind>   Bind to specific IP [default: 127.0.0.1]
   -p --port=<port>   Run on a specific port number [default: 3000]
   -t --threads=<st>  Number of server threads [default: 2].
-", flag_threads: u8);
+";
+
+#[derive(Debug, RustcDecodable)]
+struct Args {
+    flag_bind: String,
+    flag_port: u32,
+    flag_threads: u8,
+    flag_version: bool,
+    flag_help: bool
+}
+
 
 fn abort(message: &'static str) -> () {
     println!("{}", message);
@@ -46,7 +54,10 @@ fn main() {
     println!("Welcome to esper -- the Event Source HTTP server, powered by hyper!\n");
     env_logger::init().unwrap_or_else(|_| abort("Failed to initialize logger!"));
 
-    let args: Args = Args::docopt().decode().unwrap_or_else(|e| e.exit());
+    let args: Args = Docopt::new(USAGE)
+                            .and_then(|d| d.decode())
+                            .unwrap_or_else(|e| e.exit());
+
     debug!("Executing with args: {:?}", args);
 
     if args.flag_version {
@@ -104,3 +115,4 @@ fn main() {
         }
     }
 }
+

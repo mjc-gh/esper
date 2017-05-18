@@ -1,16 +1,23 @@
-FROM scorpil/rust:1.16
-MAINTAINER david david@shippeo.com
+# Universal image that can build most things Rust
+FROM phusion/baseimage
 
-RUN apt-get -qq update
-RUN apt-get -qq -y --no-install-recommends install \
-	libssl-dev \
-	# ring dependencies : https://github.com/briansmith/ring/blob/master/BUILDING.md#building-the-rust-library
-	build-essential
+# stable|beta|nightly
+ARG RUST_TOOLCHAIN=stable
+ENV RUSTUP_HOME=/tmp/rustup 
+ENV RUSTUP_BIN=$RUSTUP_HOME/toolchains/${RUST_TOOLCHAIN}-x86_64-unknown-linux-gnu/bin
 
-ADD . /src
-WORKDIR /src
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends software-properties-common \
+			python-software-properties wget pkg-config build-essential ca-certificates curl clang libclang-dev \
+			git libssl-dev gcc sudo vim libpq-dev
+
+RUN mkdir /tmp/rustup && curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain ${RUST_TOOLCHAIN}
+
+ADD . /code
+WORKDIR /code
 
 EXPOSE 3000
+ENV PATH=$RUSTUP_BIN:$PATH
 
 RUN cargo build --release
 CMD cargo run --release -- --bind 0.0.0.0

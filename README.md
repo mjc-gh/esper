@@ -98,7 +98,7 @@ There you have it, the essence of esper!
 
 ### Building
 
-Esper can be build with a rust development environment [(nightly channel)](https://doc.rust-lang.org/book/nightly-rust.html) and `cargo` command-line tool
+Esper can be build with stable Rust and `cargo` command-line tool
 ```bash
 git clone https://github.com/mikeycgto/esper.git && cd esper
 cargo build --release 

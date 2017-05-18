@@ -7,8 +7,7 @@ authors = ["Michael Coyne <mikeycgto@gmail.com>"]
 hyper = { git = "https://github.com/hyperium/hyper.git", rev = "e23689122a1d2525574d144fa79ae48fccfdb964" }
 url = { version = "1.1.1" }
 uuid = { version = "0.2", features = ["v4"] }
-docopt = { version = "0.6" }
-docopt_macros = { version = "0.6" }
+docopt = { version = "0.7" }
 rustc-serialize = { version = "0.3" }
 log = { version = "0.3" }
 env_logger = { version = "0.3" }

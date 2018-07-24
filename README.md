@@ -19,7 +19,7 @@ all published messages for this topic.
   - When requested with a valid `topic_id`, this route will publish a
     message to all subscribed clients. The entire POST body is
 considered to be the message payload. Thus, the POST data should be
-formatted like a server-sent events and include a `data` field with an
+formatted like a server-sent event and include a `data` field with an
 optional `event` and `id` field.
 
 The `:topic_id` is specified as the second part of the request path.
@@ -98,7 +98,7 @@ There you have it, the essence of esper!
 
 ### Building
 
-Esper can be build with stable Rust and `cargo` command-line tool
+Esper can be built with stable Rust and the `cargo` command-line tool
 ```bash
 git clone https://github.com/mikeycgto/esper.git && cd esper
 cargo build --release 
